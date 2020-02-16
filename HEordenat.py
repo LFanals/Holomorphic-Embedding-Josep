@@ -36,9 +36,10 @@ for i in range(df_top.shape[0]):  # passar per totes les files
     vecx_shunts[df_top.iloc[i, 1], 0] = vecx_shunts[df_top.iloc[i, 1], 0] + df_top.iloc[
         i, 4] * -1j  # B/2 is in column 4. The sign is changed here
 
-vec_shunts = np.zeros((n - 1, 1), dtype=complex)  # same vector, just to adapt
-for i in range(n - 1):
-    vec_shunts[i, 0] = vecx_shunts[i + 1, 0]
+# vec_shunts = np.zeros((n - 1, 1), dtype=complex)  # same vector, just to adapt
+# for i in range(n - 1):
+#    vec_shunts[i, 0] = vecx_shunts[i + 1, 0]
+vec_shunts = vecx_shunts[1:]
 
 # vec_shunts = --vec_shunts  # no need to change the sign, already done
 
@@ -50,6 +51,10 @@ for i in range(df_top.shape[0]):  # go through all rows
                     df_top.iloc[i, 2] + df_top.iloc[i, 3] * 1j)  # -1 so bus 1 goes to index 0
     elif df_top.iloc[i, 1] == 0:  # if slack in the second column
         vec_Y0[df_top.iloc[i, 0] - 1, 0] = 1 / (df_top.iloc[i, 2] + df_top.iloc[i, 3] * 1j)
+      
+# https://www.thepythoncorner.com/2017/12/the-art-of-avoiding-nested-code/
+# my_numbers = [1,2,3,4,5,6,7,8,9,10]
+# my_odd_numbers = filter(lambda x: x%2!=0, my_numbers)
 
 print(Y)
 G = np.real(Y)  # real parts of Yij
@@ -70,12 +75,26 @@ vec_Q = np.zeros((n - 1, 1), dtype=float)  # data of reactive power
 vec_V = np.zeros((n - 1, 1), dtype=float)  # data of voltage magnitude
 vec_W = np.zeros((n - 1, 1), dtype=float)  # voltage magnitude squared
 
-for i in range(df_bus.shape[0]):  # find the voltage specified for the slack
-    if df_bus.iloc[i, 0] == 0:
-        V_slack = df_bus.iloc[i, 3]
-    else:
-        V_slack = 1
+# for i in range(df_bus.shape[0]):  # find the voltage specified for the slack
+#    if df_bus.iloc[i, 0] == 0:
+#        V_slack = df_bus.iloc[i, 3]
+#    else:
+#        V_slack = 1
+      
+ V_slack = df_bus[df_bus[df_bus[,0]==0].index.item() , 3] if df_bus[,0]==0 else 1 
+ # https://stackoverflow.com/questions/41217310/get-index-of-a-row-of-a-pandas-dataframe-as-an-integer
 
+#for i in range(df_bus.shape[0]):  # store the data of both PQ and PV
+#    vec_P[df_bus.iloc[i, 0] - 1] = df_bus.iloc[i, 1]  # -1 to start at 0
+#    if df_bus.iloc[i, 4] == 'PQ':
+#        vec_Q[df_bus.iloc[i, 0] - 1] = df_bus.iloc[i, 2]  # -1 to start at 0
+#        vec_busos_PQ = np.append(vec_busos_PQ, df_bus.iloc[i, 0])
+#    elif df_bus.iloc[i, 4] == 'PV':
+#        vec_V[df_bus.iloc[i, 0] - 1] = df_bus.iloc[i, 3]  # -1 to start at 0
+#        vec_busos_PV = np.append(vec_busos_PV, df_bus.iloc[i, 0])
+#    num_busos_PQ = len(vec_busos_PQ)
+#    num_busos_PV = len(vec_busos_PV)
+    
 for i in range(df_bus.shape[0]):  # store the data of both PQ and PV
     vec_P[df_bus.iloc[i, 0] - 1] = df_bus.iloc[i, 1]  # -1 to start at 0
     if df_bus.iloc[i, 4] == 'PQ':
@@ -84,8 +103,9 @@ for i in range(df_bus.shape[0]):  # store the data of both PQ and PV
     elif df_bus.iloc[i, 4] == 'PV':
         vec_V[df_bus.iloc[i, 0] - 1] = df_bus.iloc[i, 3]  # -1 to start at 0
         vec_busos_PV = np.append(vec_busos_PV, df_bus.iloc[i, 0])
-    num_busos_PQ = len(vec_busos_PQ)
-    num_busos_PV = len(vec_busos_PV)
+       
+num_busos_PQ = len(vec_busos_PQ)
+num_busos_PV = len(vec_busos_PV)    
 
 vec_W=vec_V**2
 
@@ -146,6 +166,33 @@ mat = np.zeros((llarg, 2 * (n - 1) + num_busos_PV), dtype=complex)  # constant m
 k = 0  # index that will go through the rows
 
 
+#for i in range(n - 1):  # fill the matrix
+#    lx = 0
+#    for j in range(n - 1):
+#        mat[k, lx] = G[i, j]
+#        mat[k + 1, lx] = B[i, j]
+#        mat[k, lx + 1] = -B[i, j]
+#        mat[k + 1, lx + 1] = G[i, j]
+#        if i + 1 in vec_busos_PQ:
+#            if j + 1 in vec_busos_PQ:
+#                lx = lx + 2
+#            else:
+#                lx = lx + 3
+#        else:
+#            if j + 1 not in vec_busos_PV:
+#                lx = lx + 2  # 2 columns done
+#            else:
+#                if j == i:
+#                    mat[k + 2, lx] = 2 * U_re[0, i]
+#                    mat[k + 2, lx + 1] = 2 * U_im[0, i]
+#                    mat[k, lx + 2] = -X_im[0, i]
+#                    mat[k + 1, lx + 2] = X_re[0, i]
+#                lx = lx + 3
+#    if i + 1 in vec_busos_PQ:
+#        k = k+2
+#    else:
+#        k = k+3
+      
 for i in range(n - 1):  # fill the matrix
     lx = 0
     for j in range(n - 1):
@@ -153,25 +200,17 @@ for i in range(n - 1):  # fill the matrix
         mat[k + 1, lx] = B[i, j]
         mat[k, lx + 1] = -B[i, j]
         mat[k + 1, lx + 1] = G[i, j]
-        if i + 1 in vec_busos_PQ:
-            if j + 1 in vec_busos_PQ:
-                lx = lx + 2
-            else:
-                lx = lx + 3
-        else:
-            if j + 1 not in vec_busos_PV:
-                lx = lx + 2  # 2 columns done
-            else:
-                if j == i:
-                    mat[k + 2, lx] = 2 * U_re[0, i]
-                    mat[k + 2, lx + 1] = 2 * U_im[0, i]
-                    mat[k, lx + 2] = -X_im[0, i]
-                    mat[k + 1, lx + 2] = X_re[0, i]
-                lx = lx + 3
-    if i + 1 in vec_busos_PQ:
-        k = k+2
-    else:
-        k = k+3
+        
+        lx = lx+2 if ((j+1 in vec_busos_PQ and i+1 in vec_busos_PQ)  or  (j+1 not in vec_busos_PV and i+1 in vec_busos_PQ)) else lx+3
+        
+        if (j==i) and (i+1 not in vec_busos_PQ) and (j+1 in vec_busos_PV): # i+1 not in vec_busos_PQ - mirar fora del loop j i guardar resultat en variable
+            mat[k + 2, lx] = 2 * U_re[0, i]
+            mat[k + 2, lx + 1] = 2 * U_im[0, i]
+            mat[k, lx + 2] = -X_im[0, i]
+            mat[k + 1, lx + 2] = X_re[0, i]
+                
+    k = k+2 if (i + 1 in vec_busos_PQ) else k+3
+
 
 # Solve
 # mat only has to be inverted once
